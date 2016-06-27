@@ -32,7 +32,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Utilities for working with Serializables.
@@ -67,14 +69,22 @@ public class SerializableUtils {
    */
   public static Object deserializeFromByteArray(byte[] encodedValue,
       String description) {
+    final List<String> resolvedClasses = new ArrayList<>();
     try {
       try (ObjectInputStream ois = new ObjectInputStream(
-          new SnappyInputStream(new ByteArrayInputStream(encodedValue)))) {
+          new SnappyInputStream(new ByteArrayInputStream(encodedValue))) {
+        @Override
+        protected java.lang.Class<?> resolveClass(java.io.ObjectStreamClass desc)
+             throws IOException, ClassNotFoundException {
+          resolvedClasses.add(desc.getName());
+          return super.resolveClass(desc);
+        }
+      }) {
         return ois.readObject();
       }
     } catch (IOException | ClassNotFoundException exn) {
       throw new IllegalArgumentException(
-          "unable to deserialize " + description,
+          "unable to deserialize " + description + " resolved classes: " + resolvedClasses,
           exn);
     }
   }
