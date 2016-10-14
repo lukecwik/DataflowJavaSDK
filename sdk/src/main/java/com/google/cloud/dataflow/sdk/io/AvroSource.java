@@ -32,6 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InvalidObjectException;
 import java.io.ObjectStreamException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
@@ -383,16 +384,30 @@ public class AvroSource<T> extends BlockBasedSource<T> {
   // allowing us to intern any schemas.
   @SuppressWarnings("unused")
   private Object readResolve() throws ObjectStreamException {
-    return new AvroSource<>(
-        getFileOrPatternSpec(),
-        getMinBundleSize(),
-        getStartOffset(),
-        getEndOffset(),
-        readSchemaString,
-        type,
-        codec,
-        syncMarker,
-        fileSchemaString);
+    switch (getMode()) {
+      case SINGLE_FILE_OR_SUBRANGE:
+        return new AvroSource<>(
+            getFileOrPatternSpec(),
+            getMinBundleSize(),
+            getStartOffset(),
+            getEndOffset(),
+            readSchemaString,
+            type,
+            codec,
+            syncMarker,
+            fileSchemaString);
+      case FILEPATTERN:
+        return new AvroSource<>(
+            getFileOrPatternSpec(),
+            getMinBundleSize(),
+            readSchemaString,
+            type,
+            codec,
+            syncMarker);
+        default:
+          throw new InvalidObjectException(
+              String.format("Unknown mode %s for AvroSource %s", getMode(), this));
+    }
   }
 
   /**
