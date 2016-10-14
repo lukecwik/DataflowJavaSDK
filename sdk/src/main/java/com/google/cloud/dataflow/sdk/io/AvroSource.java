@@ -41,6 +41,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.WeakHashMap;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -272,11 +273,9 @@ public class AvroSource<T> extends BlockBasedSource<T> {
       }
       codec = metadata.getCodec();
       syncMarker = metadata.getSyncMarker();
-      fileSchemaString = internSchemaString(metadata.getSchemaString());
-      // If the source was created with a null schema, use the schema that we read from the file's
-      // metadata.
-      if (readSchemaString == null) {
-        readSchemaString = internSchemaString(metadata.getSchemaString());
+      // Only store both the read and file schema if the differ
+      if (!Objects.equals(readSchemaString, metadata.getSchemaString())) {
+        fileSchemaString = internSchemaString(metadata.getSchemaString());
       }
     }
     return new AvroSource<>(fileName, getMinBundleSize(), start, end, readSchemaString, type,
@@ -308,7 +307,7 @@ public class AvroSource<T> extends BlockBasedSource<T> {
   @VisibleForTesting
   Schema getReadSchema() {
     if (readSchemaString == null) {
-      return null;
+      return getFileSchema();
     }
 
     // If the schema has not been parsed, parse it.
@@ -320,13 +319,14 @@ public class AvroSource<T> extends BlockBasedSource<T> {
 
   @VisibleForTesting
   Schema getFileSchema() {
-    if (fileSchemaString == null) {
+    String schemaString = fileSchemaString == null ? readSchemaString : fileSchemaString;
+    if (schemaString == null) {
       return null;
     }
 
     // If the schema has not been parsed, parse it.
     if (fileSchema == null) {
-      fileSchema = internOrParseSchemaString(fileSchemaString);
+      fileSchema = internOrParseSchemaString(schemaString);
     }
     return fileSchema;
   }
